@@ -1,0 +1,12 @@
+diff --git a/regex-syntax/src/hir/translate.rs b/regex-syntax/src/hir/translate.rs
+--- a/regex-syntax/src/hir/translate.rs
++++ b/regex-syntax/src/hir/translate.rs
+@@ -1047,7 +1047,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
+         if let Ok(ref mut class) = result {
+             self.unicode_fold_and_negate(
+                 &ast_class.span,
+-                ast_class.is_negated(),
++                ast_class.negated,
+                 class,
+             )?;
+         }

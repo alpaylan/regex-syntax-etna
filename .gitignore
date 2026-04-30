@@ -6,3 +6,8 @@ wiki
 tags
 examples/debug.rs
 tmp/
+
+.hegel/
+progress.jsonl
+etna.log
+etna_runner/target/

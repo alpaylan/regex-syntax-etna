@@ -1,0 +1,128 @@
+name = "regex-syntax"
+description = "regex-syntax — the regular expression parser used by the `regex` crate. ETNA workload mining bug-fix commits in `rust-lang/regex` that touched the regex-syntax sub-crate."
+language = "rust"
+crate = "regex-syntax"
+base_commit = "839d16bc65b60e2006d3599d20bfa6efc14049d8"
+
+[[tasks]]
+mutations = ["blank_class_5241919_1"]
+
+[tasks.source]
+repo = "https://github.com/rust-lang/regex"
+commits = ["5241919f48c3bf54fbe8d4e9d50b4a55038da150"]
+commit_subjects = ["syntax: fix [[:blank:]] character class"]
+issues = [533]
+summary = "When `regex-syntax` was rewritten, a transcription error in the ASCII `Blank` class table left the entry as `[(' ', '\\t')]` (a single inverted-range tuple) instead of `[('\\t', '\\t'), (' ', ' ')]`. Because the class normalizer expanded that into the byte interval `[0x09, 0x20]`, the POSIX `[[:blank:]]` class matched control characters and most punctuation in addition to the intended `[ \\t]`."
+
+[tasks.injection]
+kind = "patch"
+files = ["regex-syntax/src/hir/translate.rs"]
+locations = [{ file = "regex-syntax/src/hir/translate.rs", line = 1326, symbol = "ascii_class" }]
+patch = "patches/blank_class_5241919_1.patch"
+
+[tasks.bug]
+short_name = "blank_class"
+invariant = "Parsing `[[:blank:]]` produces a character class that contains exactly the two ASCII characters U+0020 (space) and U+0009 (tab) — `(c == ' ' || c == '\\t')` is equivalent to `c` being a member of the parsed class."
+how_triggered = "The mutation reverts the `Blank` arm of `ascii_class` to the buggy `&[(b' ', b'\\t')]` (inverted range). After class normalisation that becomes `[0x09, 0x20]`, and every character in the `\\t..=' '` ASCII range — newline, vertical tab, form feed, carriage return, control bytes, and many printable punctuation marks — is reported as belonging to `[[:blank:]]`."
+
+[[tasks.tasks]]
+property = "BlankClassCorrect"
+witnesses = [
+  { test_fn = "witness_blank_class_correct_case_newline", note = "Newline (U+000A) lies inside the inverted range [0x09, 0x20] but is not blank." },
+  { test_fn = "witness_blank_class_correct_case_zero", note = "U+0000 — confirms control bytes do not leak into the class." },
+  { test_fn = "witness_blank_class_correct_case_uppercase_a", note = "U+0041 — outside the inverted range; both versions agree." },
+  { test_fn = "witness_blank_class_correct_case_space", note = "Positive case: ' ' must remain in the class." },
+  { test_fn = "witness_blank_class_correct_case_tab", note = "Positive case: '\\t' must remain in the class." },
+]
+
+[[tasks]]
+mutations = ["empty_class_print_e6d251a_1"]
+
+[tasks.source]
+repo = "https://github.com/rust-lang/regex"
+commits = ["e6d251a26090b02c43c19d5d0ee3de0838abb6e4"]
+commit_subjects = ["syntax: fix empty char class bug in HIR printer"]
+summary = "When the HIR is a character class with zero ranges (produced by patterns like `\\P{any}`, `[a&&b]`, or `[a-c--a-c]`), the HIR printer used to emit the literal string `[]` (Unicode class) or `(?-u:[])` (Bytes class). Both are unparseable: an immediate `]` after `[` is interpreted as a literal `]`, leaving the class unclosed. The fix special-cases empty classes and emits `[a&&b]`, the intersection of two disjoint singletons, which is a valid empty class."
+
+[tasks.injection]
+kind = "patch"
+files = ["regex-syntax/src/hir/print.rs"]
+locations = [{ file = "regex-syntax/src/hir/print.rs", line = 134, symbol = "Writer::visit_pre" }]
+patch = "patches/empty_class_print_e6d251a_1.patch"
+
+[tasks.bug]
+short_name = "empty_class_print"
+invariant = "For every regex pattern `p` accepted by the parser, `parse(print(parse(p)))` must also succeed — every printable HIR re-parses. Empty character classes are a legal HIR shape and the printer must produce a parseable surface form for them."
+how_triggered = "The mutation removes the `cls.ranges().is_empty()` guards from both the Unicode and Bytes branches of `Writer::visit_pre`'s class arm. Empty classes then fall through to the normal `write_str(\"[\")?; for range in cls.iter() { ... } write_str(\"]\")?;` path, which emits `[]` (or `(?-u:[])` for bytes) — both unclosed-character-class errors when re-parsed."
+
+[[tasks.tasks]]
+property = "PrintRoundtripParses"
+witnesses = [
+  { test_fn = "witness_print_roundtrip_parses_case_neg_any", note = "`\\P{any}` is the canonical empty Unicode class." },
+  { test_fn = "witness_print_roundtrip_parses_case_intersect_empty", note = "`[a&&b]` — intersection of two disjoint singletons." },
+  { test_fn = "witness_print_roundtrip_parses_case_subtract_self", note = "`[a-c--a-c]` — class minus itself, also empty." },
+  { test_fn = "witness_print_roundtrip_parses_case_simple_literal", note = "Sanity check: a normal pattern still roundtrips." },
+]
+
+[[tasks]]
+mutations = ["negation_handling_c4865a0_1"]
+
+[tasks.source]
+repo = "https://github.com/rust-lang/regex"
+commits = ["c4865a0c8446a701e10b0fd987f19068f5dcc365"]
+commit_subjects = ["syntax: fix negation handling in HIR translation"]
+summary = "When translating an `ast::ClassUnicode` of the `NamedValue { op: NotEqual, .. }` shape (e.g. `\\p{gc!=Z}`), the translator passed `ast_class.negated` to `unicode_fold_and_negate` — but `negated` only reports whether the class uses `\\p` vs `\\P`, not whether the embedded `!=` operator should also flip the polarity. The bug therefore made `\\p{gc!=Z}` translate to the same class as `\\p{gc=Z}`. The fix calls `ast_class.is_negated()`, which combines both signals."
+
+[tasks.injection]
+kind = "patch"
+files = ["regex-syntax/src/hir/translate.rs"]
+locations = [{ file = "regex-syntax/src/hir/translate.rs", line = 1050, symbol = "TranslatorI::hir_unicode_class" }]
+patch = "patches/negation_handling_c4865a0_1.patch"
+
+[tasks.bug]
+short_name = "negation_handling"
+invariant = "For every Unicode general-category property `X` and every `c: char`, `c` is in the class produced by `\\p{gc=X}` exactly when it is NOT in the class produced by `\\p{gc!=X}`. The two classes partition the Unicode codepoint space."
+how_triggered = "The mutation replaces `ast_class.is_negated()` with `ast_class.negated`. Because `\\p{gc!=Z}` uses `\\p` (not `\\P`), `negated` is `false` — the `!=` operator is silently dropped. The translated class for `\\p{gc!=Z}` then equals the class for `\\p{gc=Z}`, so a Separator like ' ' is reported as belonging to both `\\p{gc=Z}` and `\\p{gc!=Z}`, violating the partition invariant."
+
+[[tasks.tasks]]
+property = "NamedNeqComplements"
+witnesses = [
+  { test_fn = "witness_named_neq_complements_case_space", note = "U+0020 is gc=Zs; under the bug `\\p{gc!=Z}` mistakenly contains it." },
+  { test_fn = "witness_named_neq_complements_case_uppercase_a", note = "'A' is gc=Lu; under the bug `\\p{gc!=Z}` excludes it (it equals gc=Z)." },
+  { test_fn = "witness_named_neq_complements_case_no_break_space", note = "U+00A0 NO-BREAK SPACE is also gc=Zs — confirms the bug isn't ASCII-specific." },
+]
+
+[[tasks]]
+mutations = ["counted_rep_directive_7b1599f_1"]
+
+[tasks.source]
+repo = "https://github.com/rust-lang/regex"
+commits = ["7b1599f2f6903e4087c6cd109404be4056406ad9"]
+commit_subjects = ["syntax: fix counted repetition bug"]
+issues = [555]
+summary = "`parse_counted_repetition` popped the previous AST off the concatenation and applied `{N}` to it without checking that the popped node was a valid repetition target. For inputs like `(?i){1}` or `(?m){1,1}` — where the node is `Ast::Flags` (a bare flag directive) — or for `(?:){5}` — where the node is `Ast::Empty` — the parser silently produced an `Ast::Repetition` over a non-expression. At the time, the HIR translator panicked on this shape; today the translator no-ops on `Repetition(Empty)` and the bug shows up as the parser quietly accepting a malformed pattern instead of returning `RepetitionMissing`. The fix adds an explicit `Ast::Empty(_) | Ast::Flags(_) => Err(RepetitionMissing)` arm before consuming the count."
+
+[tasks.injection]
+kind = "patch"
+files = ["regex-syntax/src/ast/parse.rs"]
+locations = [{ file = "regex-syntax/src/ast/parse.rs", line = 1117, symbol = "ParserI::parse_counted_repetition" }]
+patch = "patches/counted_rep_directive_7b1599f_1.patch"
+
+[tasks.bug]
+short_name = "counted_rep_directive"
+invariant = "Counted repetition `{N}` (and `{N,M}`) requires a real preceding sub-expression. A pattern like `(?<flags>){N}`, where the only node before `{N}` is a flag directive that contributes no matchable expression, must be rejected with `ErrorKind::RepetitionMissing`."
+how_triggered = "The mutation removes the `Ast::Empty(_) | Ast::Flags(_)` early-return guard from `parse_counted_repetition`. The parser then consumes `{N}` and produces `Ast::Repetition(Ast::Flags(...), N)` without complaint. After HIR translation that flattens to `Ok(Empty)` instead of the expected `Err(RepetitionMissing)`, so the API silently accepts a malformed regex."
+
+[[tasks.tasks]]
+property = "DirectiveRepRejected"
+witnesses = [
+  { test_fn = "witness_directive_rep_rejected_case_i_one", note = "`(?i){1}` — the original regression input." },
+  { test_fn = "witness_directive_rep_rejected_case_m_one_one", note = "`(?m){1,1}` — explicit-min counted form from the regression test." },
+  { test_fn = "witness_directive_rep_rejected_case_x_zero", note = "`(?x){0}` — zero-count edge case (also from the regression test)." },
+  { test_fn = "witness_directive_rep_rejected_case_isx_five", note = "`(?isx){5}` — multi-flag directive followed by larger count." },
+]
+
+[[dropped]]
+commit = "f9aec41"
+subject = "syntax: fix overflow for big counted repetitions"
+reason = "concat-loop overflow only fires when usize is 32-bit; on the 64-bit test platform the buggy `*minimum_len += len` cannot reach `usize::MAX` from a feasible regex pattern, so no witness can deterministically detect the variant"

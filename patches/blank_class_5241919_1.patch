@@ -1,0 +1,12 @@
+diff --git a/regex-syntax/src/hir/translate.rs b/regex-syntax/src/hir/translate.rs
+--- a/regex-syntax/src/hir/translate.rs
++++ b/regex-syntax/src/hir/translate.rs
+@@ -1323,7 +1323,7 @@ fn ascii_class(kind: &ast::ClassAsciiKind) -> impl Iterator<Item = (u8, u8)> {
+         Alnum => &[(b'0', b'9'), (b'A', b'Z'), (b'a', b'z')],
+         Alpha => &[(b'A', b'Z'), (b'a', b'z')],
+         Ascii => &[(b'\x00', b'\x7F')],
+-        Blank => &[(b'\t', b'\t'), (b' ', b' ')],
++        Blank => &[(b' ', b'\t')],
+         Cntrl => &[(b'\x00', b'\x1F'), (b'\x7F', b'\x7F')],
+         Digit => &[(b'0', b'9')],
+         Graph => &[(b'!', b'~')],

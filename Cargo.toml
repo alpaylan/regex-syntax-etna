@@ -25,6 +25,7 @@ members = [
   "regex-lite",
   "regex-syntax",
   "regex-test",
+  "etna_runner",
 ]
 
 [workspace.package]

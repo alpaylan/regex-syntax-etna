@@ -1,0 +1,23 @@
+diff --git a/regex-syntax/src/hir/print.rs b/regex-syntax/src/hir/print.rs
+--- a/regex-syntax/src/hir/print.rs
++++ b/regex-syntax/src/hir/print.rs
+@@ -132,9 +132,6 @@ impl<W: fmt::Write> Visitor for Writer<W> {
+                 }
+             }
+             HirKind::Class(hir::Class::Unicode(ref cls)) => {
+-                if cls.ranges().is_empty() {
+-                    return self.wtr.write_str("[a&&b]");
+-                }
+                 self.wtr.write_str("[")?;
+                 for range in cls.iter() {
+                     if range.start() == range.end() {
+@@ -153,9 +150,6 @@ impl<W: fmt::Write> Visitor for Writer<W> {
+                 self.wtr.write_str("]")?;
+             }
+             HirKind::Class(hir::Class::Bytes(ref cls)) => {
+-                if cls.ranges().is_empty() {
+-                    return self.wtr.write_str("[a&&b]");
+-                }
+                 self.wtr.write_str("(?-u:[")?;
+                 for range in cls.iter() {
+                     if range.start() == range.end() {

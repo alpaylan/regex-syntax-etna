@@ -196,6 +196,8 @@ mod unicode;
 mod unicode_tables;
 pub mod utf8;
 
+pub mod etna;
+
 /// Escapes all regular expression meta characters in `text`.
 ///
 /// The string returned may be safely used as a literal in a regular
