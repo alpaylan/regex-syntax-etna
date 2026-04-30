@@ -1,6 +1,7 @@
 name = "regex-syntax"
 description = "regex-syntax — the regular expression parser used by the `regex` crate. ETNA workload mining bug-fix commits in `rust-lang/regex` that touched the regex-syntax sub-crate."
 language = "rust"
+strategies = ["proptest", "quickcheck", "crabcheck", "hegel"]
 crate = "regex-syntax"
 base_commit = "839d16bc65b60e2006d3599d20bfa6efc14049d8"
 
