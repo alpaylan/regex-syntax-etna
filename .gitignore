@@ -11,3 +11,12 @@ tmp/
 progress.jsonl
 etna.log
 etna_runner/target/
+
+# etna runtime artifacts (auto-added)
+/coverage/
+*.profraw
+/profdata/
+/.marauders/
+/.hegel/
+/etna.log
+/progress.jsonl
